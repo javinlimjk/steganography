@@ -175,11 +175,11 @@ class SteganographyApp(TkinterDnD.Tk):
         super().__init__()
         self.title("LSB Steganography with Drag and Drop")
 
-        # Frame for the cover object (image or MP3)
+        # Frame for the cover object (image or wav)
         self.cover_frame = tk.Frame(self)
         self.cover_frame.pack(pady=10)
 
-        self.cover_label = tk.Label(self.cover_frame, text="Select Cover Object (Image or MP3):")
+        self.cover_label = tk.Label(self.cover_frame, text="Select Cover Object (Image or wav):")
         self.cover_label.grid(row=0, column=0, padx=10)
 
         self.cover_button = tk.Button(self.cover_frame, text="Browse", command=self.load_cover_file)
@@ -240,7 +240,7 @@ class SteganographyApp(TkinterDnD.Tk):
         self.payload_text_label.dnd_bind('<<Drop>>', self.on_drop_payload)
    
     def on_drop_cover(self, event):
-        # Handle file drop for cover object (image or MP3)
+        # Handle file drop for cover object (image or wav)
         self.cover_file_path = event.data
         if self.cover_file_path.endswith(('.png', '.bmp')):
             img = Image.open(self.cover_file_path)
@@ -249,10 +249,10 @@ class SteganographyApp(TkinterDnD.Tk):
             self.cover_image_label.config(image=img_tk, text="")
             self.cover_image_label.image = img_tk  # Keep a reference
         elif self.cover_file_path.endswith('.wav'):
-            self.cover_image_label.config(text=f"MP3 File selected: {self.cover_file_path}", image="")  # Clear image
-            messagebox.showinfo("MP3 File", f"MP3 File selected: {self.cover_file_path}")
+            self.cover_image_label.config(text=f"wav File selected: {self.cover_file_path}", image="")  # Clear image
+            messagebox.showinfo("wav File", f"wav File selected: {self.cover_file_path}")
         else:
-            messagebox.showwarning("Invalid File", "Please drop a valid image or MP3 file.")
+            messagebox.showwarning("Invalid File", "Please drop a valid image or wav file.")
     
 
     def on_drop_payload(self, event):
@@ -265,7 +265,7 @@ class SteganographyApp(TkinterDnD.Tk):
             messagebox.showwarning("Invalid File", "Please drop a valid text file.")
 
     def load_cover_file(self):
-        self.cover_file_path = filedialog.askopenfilename(title="Select Cover Image or MP3", filetypes=[("Image files", "*.png;*.bmp"), ("wav files", "*.wav")])
+        self.cover_file_path = filedialog.askopenfilename(title="Select Cover Image or wav", filetypes=[("Image files", "*.png;*.bmp"), ("wav files", "*.wav")])
         self.display_cover_file(self.cover_file_path)
         
         if self.cover_file_path.endswith(('.png', '.bmp')):
@@ -278,14 +278,14 @@ class SteganographyApp(TkinterDnD.Tk):
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load image: {e}")
     
-        # Check if it's an MP3
+        # Check if it's an wav
         elif self.cover_file_path.endswith('.wav'):
-            self.cover_image_label.config(text=f"MP3 File selected: {self.cover_file_path}", image="")  # Clear image
-            messagebox.showinfo("MP3 File", f"MP3 File selected: {self.cover_file_path}")
+            self.cover_image_label.config(text=f"wav File selected: {self.cover_file_path}", image="")  # Clear image
+            messagebox.showinfo("wav File", f"wav File selected: {self.cover_file_path}")
     
         # Invalid file type
         else:
-            messagebox.showwarning("Invalid File", "Please select a valid image or MP3 file.")
+            messagebox.showwarning("Invalid File", "Please select a valid image or wav file.")
 
     def load_payload_file(self):
         self.payload_file_path = filedialog.askopenfilename(title="Select Text File", filetypes=[("Text files", "*.txt")])
@@ -296,7 +296,7 @@ class SteganographyApp(TkinterDnD.Tk):
         if self.cover_file_path and self.payload_file_path:
             lsb_bits = self.lsb_var.get()
 
-            # Check if the cover file is an image or MP3 and provide appropriate file dialog options
+            # Check if the cover file is an image or wav and provide appropriate file dialog options
             if self.cover_file_path.endswith(('.png', '.bmp')):
                 output_path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png")])
                 if output_path:
@@ -306,14 +306,14 @@ class SteganographyApp(TkinterDnD.Tk):
                     messagebox.showwarning("Error", "Failed to save the image.")
 
             elif self.cover_file_path.endswith('.wav'):
-                output_path = filedialog.asksaveasfilename(defaultextension=".wav", filetypes=[("MP3 files", "*.wav")])
+                output_path = filedialog.asksaveasfilename(defaultextension=".wav", filetypes=[("wav files", "*.wav")])
                 if output_path:
                     encode_audio_lsb(self.cover_file_path, self.payload_file_path, output_path, lsb_bits)
                     messagebox.showinfo("Success", f"Encoded stego audio saved as {output_path}")
                 else:
                     messagebox.showwarning("Error", "Failed to save the audio.")
             else:
-                messagebox.showwarning("Error", "Invalid cover object format. Please select a valid image or MP3 file.")
+                messagebox.showwarning("Error", "Invalid cover object format. Please select a valid image or wav file.")
         else:
             messagebox.showwarning("Error", "Please select both cover object and payload.")
         
