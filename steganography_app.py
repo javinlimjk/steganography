@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinterdnd2 import TkinterDnD, DND_FILES
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
-from lsb_steganography import encode_image_lsb, decode_image_lsb, encode_audio_lsb, decode_audio_lsb
+from audio_steganography import encode_audio_lsb, decode_audio_lsb
+from image_steganography import encode_image, decode_image
 
 class SteganographyApp(TkinterDnD.Tk):
     def __init__(self):
@@ -148,7 +149,7 @@ class SteganographyApp(TkinterDnD.Tk):
             if self.cover_file_path.endswith('.png') or self.cover_file_path.endswith('.bmp'):
                 output_path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png")])
                 if output_path:
-                    encode_image_lsb(self.cover_file_path, self.payload_file_path, output_path, lsb_bits)
+                    encode_image(self.cover_file_path, self.payload_file_path, output_path, lsb_bits)
                     messagebox.showinfo("Success", f"Encoded stego image saved as {output_path}")
                     self.display_stego_image(output_path)
                     self.comparison_frame.pack()  # Show comparison frame
@@ -177,7 +178,7 @@ class SteganographyApp(TkinterDnD.Tk):
                 decoded_message = decode_audio_lsb(self.cover_file_path)
                 messagebox.showinfo("Decoded Message", decoded_message)
             else:
-                decoded_message = decode_image_lsb(self.cover_file_path, self.lsb_var.get())
+                decoded_message = decode_image(self.cover_file_path, self.lsb_var.get())
                 messagebox.showinfo("Decoded Message", decoded_message)
         else:
             messagebox.showwarning("Error", "Please select a cover object first")
