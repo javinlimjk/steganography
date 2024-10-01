@@ -17,7 +17,7 @@ class SteganographyApp(TkinterDnD.Tk):
         self.frame.pack(pady=20)
 
         # Cover Object
-        self.cover_label = tk.Label(self.frame, text="Cover Object (Image/Audio/Video):", bg="#ffffff", font=("Arial", 12))
+        self.cover_label = tk.Label(self.frame, text="Cover Object (Image/Audio/Video/Text):", bg="#ffffff", font=("Arial", 12))
         self.cover_label.grid(row=0, column=0, padx=10)
 
         self.cover_entry = tk.Entry(self.frame, width=40, font=("Arial", 12))
@@ -110,7 +110,7 @@ class SteganographyApp(TkinterDnD.Tk):
     def load_cover_file(self):
         self.cover_file_path = filedialog.askopenfilename(
             title="Select Cover Object (Image/Audio/Video)",
-            filetypes=[("Image/Audio/Video files", "*.png;*.bmp;*.wav;*.mp4;*avi")]
+            filetypes=[("All Supported Files", "*.txt;*.png;*.bmp;*.wav;*.mp4;*.avi")]
         )
         if self.cover_file_path:
             self.cover_entry.delete(0, tk.END)
@@ -128,9 +128,14 @@ class SteganographyApp(TkinterDnD.Tk):
         elif self.cover_file_path.endswith('.wav'):
             messagebox.showinfo("Cover Object", "Audio file selected as cover object.")
             self.original_frame.pack_forget()
-        elif self.cover_file_path.endswith('.mp4', '.avi'):
+        elif self.cover_file_path.endswith('.mp4') or self.cover_file_path.endswith('.avi'):
             messagebox.showinfo("Cover Object", "Video file selected as cover object.")
             self.original_frame.pack_forget()
+        elif self.cover_file_path.endswith('.txt'):
+            messagebox.showinfo("Cover Object", "Text file selected as cover object.")
+            self.original_frame.pack_forget()
+        else:
+            messagebox.showerror("Error", "Unsupported file type selected.")
 
     def load_payload_file(self):
         self.payload_file_path = filedialog.askopenfilename(
@@ -168,9 +173,44 @@ class SteganographyApp(TkinterDnD.Tk):
                         messagebox.showinfo("Success", f"Encoded stego video saved as {output_path}")
                 else:
                     messagebox.showerror("Error", "Please provide a valid frame number for video encoding.")
+
+            elif self.cover_file_path.endswith('.txt'):
+                # Encode in a text file using whitespace encoding
+                with open(self.cover_file_path, 'r') as cover_file:
+                    cover_data = cover_file.read()
+                with open(self.payload_file_path, 'r') as payload_file:
+                    payload_data = payload_file.read()
+                # Convert payload data to binary string (7 bits for ASCII)
+                payload_bits = ''.join(format(ord(char), '07b') for char in payload_data)
+                # Create encoded text using whitespace encoding
+                encoded_text = ''
+                payload_index = 0
+                for char in cover_data:
+                    encoded_text += char  # Append original character
+                    # Add whitespace based on payload bits
+                    if payload_index < len(payload_bits):
+                        if payload_bits[payload_index] == '1':
+                            encoded_text += '\t'  # Use tab for '1'
+                        else:
+                            encoded_text += ' '  # Use space for '0'
+                        payload_index += 1
+                # If there are remaining bits to encode, consider appending space or tabs
+                while payload_index < len(payload_bits):
+                    if payload_bits[payload_index] == '1':
+                        encoded_text += '\t'
+                    else:
+                        encoded_text += ' '
+                    payload_index += 1
+                output_path = filedialog.asksaveasfilename(defaultextension=".txt",
+                                                           filetypes=[("Text files", "*.txt")])
+                if output_path:
+                    with open(output_path, 'w') as encoded_file:
+                        encoded_file.write(encoded_text)
+                    messagebox.showinfo("Success", f"Encoded text file saved as {output_path}")
+                print(
+                    f"Encoded text (truncated): {encoded_text[:100]}...")  # Print first 100 characters for debugging
         else:
             messagebox.showerror("Error", "Please select both a cover object and a payload.")
-
     def decode(self):
         if self.cover_file_path:
             lsb_bits = self.lsb_var.get()
@@ -190,6 +230,27 @@ class SteganographyApp(TkinterDnD.Tk):
                     messagebox.showinfo("Decoded Message", decoded_message)
                 else:
                     messagebox.showerror("Error", "Please provide a valid frame number for video decoding.")
+            elif self.cover_file_path.endswith('.txt'):
+                with open(self.cover_file_path, 'r') as encoded_file:
+                    encoded_data = encoded_file.read()
+                # Extract bits based on whitespace
+                extracted_bits = ''
+                for char in encoded_data:
+                    if char == '\t':
+                        extracted_bits += '1'  # Tab represents '1'
+                    elif char == ' ':
+                        extracted_bits += '0'  # Space represents '0'
+                # Split extracted bits into bytes (7 bits each for ASCII)
+                decoded_message = ''
+                for i in range(0, len(extracted_bits), 7):
+                    byte = extracted_bits[i:i + 7]
+                    if len(byte) == 7:  # Only consider complete bytes
+                        decoded_message += chr(int(byte, 2))
+                # Check for valid extraction
+                if decoded_message:
+                    messagebox.showinfo("Decoded Message", decoded_message)
+                else:
+                    messagebox.showwarning("Warning", "No hidden message found in the selected file.")
         else:
             messagebox.showerror("Error", "Please select a cover object.")
 
