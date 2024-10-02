@@ -6,6 +6,10 @@ from audio_steganography import encode_audio_lsb, decode_audio_lsb
 from image_steganography import encode_image, decode_image
 from video_steganography import encode_video, decode_video  # Import video functions
 
+# Global variables for bit sizes
+cover_bits = 0
+payload_bits = 0
+
 class SteganographyApp(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
@@ -108,6 +112,7 @@ class SteganographyApp(TkinterDnD.Tk):
         self.payload_entry.insert(0, self.payload_file_path)
 
     def load_cover_file(self):
+        global cover_bits
         self.cover_file_path = filedialog.askopenfilename(
             title="Select Cover Object (Image/Audio/Video)",
             filetypes=[("All Supported Files", "*.txt;*.png;*.bmp;*.wav;*.mp4;*.avi")]
@@ -116,6 +121,20 @@ class SteganographyApp(TkinterDnD.Tk):
             self.cover_entry.delete(0, tk.END)
             self.cover_entry.insert(0, self.cover_file_path)
             self.display_cover()
+            if self.cover_file_path.endswith('.png') or self.cover_file_path.endswith('.bmp'):
+                img = Image.open(self.cover_file_path)
+                cover_bits = img.size[0] * img.size[1] * 3 * self.lsb_var.get()  # RGB pixels, 3 channels
+            elif self.cover_file_path.endswith('.wav'):
+                # WAV files use 16-bit samples, so we estimate total bits as the number of samples * 16
+                with open(self.cover_file_path, 'rb') as f:
+                    cover_bits = len(f.read()) * 8
+            elif self.cover_file_path.endswith('.txt'):
+                with open(self.cover_file_path, 'r') as f:
+                    cover_bits = len(f.read()) * 8
+            elif self.cover_file_path.endswith('.mp4') or self.cover_file_path.endswith('.avi'):
+                # For video, we will need to estimate the available bits in the selected frame.
+                cover_bits = 0  # Placeholder, needs to be calculated based on video frame selection
+            print(f"Coverbit: '{cover_bits}'")
 
     def display_cover(self):
         if self.cover_file_path.endswith(('.png', '.bmp')):
@@ -138,6 +157,7 @@ class SteganographyApp(TkinterDnD.Tk):
             messagebox.showerror("Error", "Unsupported file type selected.")
 
     def load_payload_file(self):
+        global payload_bits
         self.payload_file_path = filedialog.askopenfilename(
             title="Select Payload (Text File)",
             filetypes=[("Text files", "*.txt")]
@@ -145,11 +165,23 @@ class SteganographyApp(TkinterDnD.Tk):
         if self.payload_file_path:
             self.payload_entry.delete(0, tk.END)
             self.payload_entry.insert(0, self.payload_file_path)
+            with open(self.payload_file_path, 'r') as f:
+                payload_bits = len(f.read()) * 8  # Each character in text is 1 byte, or 8 bits
+            print(f"Payload bit: '{payload_bits}'")
+
+    def check_capacity(self):
+        if payload_bits > cover_bits:
+            messagebox.showerror("Error", "Payload file is too large for the selected cover object.")
+            return False
+        return True
 
     def encode(self):
         if self.cover_file_path and self.payload_file_path:
             lsb_bits = self.lsb_var.get()
             frame_number = self.frame_entry.get()
+
+            if not self.check_capacity():
+                return
 
             if self.cover_file_path.endswith('.png') or self.cover_file_path.endswith('.bmp'):
                 output_path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png")])
