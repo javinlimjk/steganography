@@ -55,36 +55,27 @@ class SteganographyApp(TkinterDnD.Tk):
             bg="#4CAF50", fg="white", font=("Arial", 12))
         self.payload_browse_button.grid(row=1, column=2, padx=10)
 
-        # Frame Number for Video
-        self.frame_label = tk.Label(
-            self.frame, text="Frame Number (for Video):",
-            bg="#ffffff", font=("Arial", 12))
-        self.frame_label.grid(row=2, column=0, padx=10)
-
-        self.frame_entry = tk.Entry(self.frame, width=10, font=("Arial", 12))
-        self.frame_entry.grid(row=2, column=1)
-
         # LSB Selection
         self.lsb_label = tk.Label(
             self.frame, text="Number of LSBs:",
             bg="#ffffff", font=("Arial", 12))
-        self.lsb_label.grid(row=3, column=0, padx=10)
+        self.lsb_label.grid(row=2, column=0, padx=10)
 
         self.lsb_var = tk.IntVar(value=1)
         self.lsb_spinbox = tk.Spinbox(
             self.frame, from_=1, to=8, textvariable=self.lsb_var, font=("Arial", 12))
-        self.lsb_spinbox.grid(row=3, column=1)
+        self.lsb_spinbox.grid(row=2, column=1)
 
         # Action Buttons
         self.encode_button = tk.Button(
             self.frame, text="Encode", command=self.encode,
             bg="#2196F3", fg="white", font=("Arial", 12))
-        self.encode_button.grid(row=4, column=0, pady=20)
+        self.encode_button.grid(row=3, column=0, pady=20)
 
         self.decode_button = tk.Button(
             self.frame, text="Decode", command=self.decode,
             bg="#2196F3", fg="white", font=("Arial", 12))
-        self.decode_button.grid(row=4, column=1, pady=20)
+        self.decode_button.grid(row=3, column=1, pady=20)
 
         # Frame for displaying original cover object (initially hidden)
         self.original_frame = tk.Frame(
@@ -164,9 +155,19 @@ class SteganographyApp(TkinterDnD.Tk):
             self.cover_entry.delete(0, tk.END)
             self.cover_entry.insert(0, self.cover_file_path)
             self.display_cover()
+
+            # Remove previous FPS and Duration labels if they exist
+            if hasattr(self, 'fps_label') and self.fps_label.winfo_exists():
+                self.fps_label.destroy()
+            if hasattr(self, 'duration_label') and self.duration_label.winfo_exists():
+                self.duration_label.destroy()
+
+            # Initialize fps variable
+            self.video_fps = None
+
             if self.cover_file_path.endswith('.png') or self.cover_file_path.endswith('.bmp'):
                 img = Image.open(self.cover_file_path)
-                cover_bits = img.size[0] * img.size[1] * 3 * self.lsb_var.get()  # RGB pixels, 3 channels
+                cover_bits = img.size[0] * img.size[1] * 3 * self.lsb_var.get()
             elif self.cover_file_path.endswith('.wav'):
                 with open(self.cover_file_path, 'rb') as f:
                     cover_bits = len(f.read()) * 8
@@ -176,12 +177,34 @@ class SteganographyApp(TkinterDnD.Tk):
             elif self.cover_file_path.endswith('.mp4') or self.cover_file_path.endswith('.avi'):
                 cap = cv2.VideoCapture(self.cover_file_path)
                 ret, frame = cap.read()
-                cap.release()
                 if ret:
                     height, width, channels = frame.shape
                     cover_bits = height * width * channels * self.lsb_var.get()
+
+                    # Get FPS
+                    self.video_fps = cap.get(cv2.CAP_PROP_FPS)
+                    print(f"The FPS of the video is: {self.video_fps}")
+
+                    # Get total frame count
+                    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                    self.video_frame_count = frame_count
+
+                    # Calculate duration
+                    self.video_duration = frame_count / self.video_fps if self.video_fps else 0
+
+                    # Display FPS and Duration in the GUI
+                    self.fps_label = tk.Label(
+                        self.frame, text=f"Video FPS: {self.video_fps:.2f}",
+                        bg="#ffffff", font=("Arial", 12))
+                    self.fps_label.grid(row=4, column=0, columnspan=2, pady=5)
+
+                    self.duration_label = tk.Label(
+                        self.frame, text=f"Video Duration: {self.video_duration:.2f} seconds",
+                        bg="#ffffff", font=("Arial", 12))
+                    self.duration_label.grid(row=5, column=0, columnspan=2, pady=5)
                 else:
                     cover_bits = 0
+                cap.release()
             print(f"Cover bits: '{cover_bits}'")
 
     def display_cover(self):
@@ -255,7 +278,8 @@ class SteganographyApp(TkinterDnD.Tk):
     def encode(self):
         if self.cover_file_path and self.payload_file_path:
             lsb_bits = self.lsb_var.get()
-            frame_number = self.frame_entry.get()
+            # Default frame number set to 0 (first frame)
+            frame_number = 0
 
             if not self.check_capacity():
                 return
@@ -281,19 +305,15 @@ class SteganographyApp(TkinterDnD.Tk):
                         "Success", f"Encoded stego audio saved as {output_path}")
 
             elif self.cover_file_path.endswith('.mp4') or self.cover_file_path.endswith('.avi'):
-                if frame_number.isdigit():
-                    output_path = filedialog.asksaveasfilename(
-                        defaultextension=".avi", filetypes=[("AVI files", "*.avi")])
-                    if output_path:
-                        encode_video(
-                            self.cover_file_path, self.payload_file_path, int(frame_number), lsb_bits, output_path)
-                        messagebox.showinfo(
-                            "Success", f"Encoded stego video saved as {output_path}")
-                        self.display_stego_image(output_path)
-                        self.comparison_frame.pack()
-                else:
-                    messagebox.showerror(
-                        "Error", "Please provide a valid frame number for video encoding.")
+                output_path = filedialog.asksaveasfilename(
+                    defaultextension=".avi", filetypes=[("AVI files", "*.avi")])
+                if output_path:
+                    encode_video(
+                        self.cover_file_path, self.payload_file_path, frame_number, lsb_bits, output_path)
+                    messagebox.showinfo(
+                        "Success", f"Encoded stego video saved as {output_path}")
+                    self.display_stego_image(output_path)
+                    self.comparison_frame.pack()
 
             elif self.cover_file_path.endswith('.txt'):
                 with open(self.cover_file_path, 'r') as cover_file:
@@ -334,7 +354,8 @@ class SteganographyApp(TkinterDnD.Tk):
     def decode(self):
         if self.cover_file_path:
             lsb_bits = self.lsb_var.get()
-            frame_number = self.frame_entry.get()
+            # Default frame number set to 0 (first frame)
+            frame_number = 0
 
             if self.cover_file_path.endswith('.png') or self.cover_file_path.endswith('.bmp'):
                 decoded_message = decode_image(
@@ -346,13 +367,10 @@ class SteganographyApp(TkinterDnD.Tk):
                 messagebox.showinfo("Decoded Message", decoded_message)
 
             elif self.cover_file_path.endswith('.avi') or self.cover_file_path.endswith('.mp4'):
-                if frame_number.isdigit():
-                    decoded_message = decode_video(
-                        self.cover_file_path, int(frame_number), lsb_bits)
-                    messagebox.showinfo("Decoded Message", decoded_message)
-                else:
-                    messagebox.showerror(
-                        "Error", "Please provide a valid frame number for video decoding.")
+                decoded_message = decode_video(
+                    self.cover_file_path, frame_number, lsb_bits)
+                messagebox.showinfo("Decoded Message", decoded_message)
+
             elif self.cover_file_path.endswith('.txt'):
                 with open(self.cover_file_path, 'r') as encoded_file:
                     encoded_data = encoded_file.read()
