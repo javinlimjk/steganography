@@ -7,10 +7,18 @@ from image_steganography import encode_image, decode_image
 from video_steganography import encode_video, decode_video
 from tkVideoPlayer import TkinterVideo
 import cv2
+from video_steganography import encode_video, decode_video
+from tkVideoPlayer import TkinterVideo
+import cv2
 
 # Global variables for bit sizes
 cover_bits = 0
 payload_bits = 0
+
+# Global variables for file types
+ACCEPTABLE_COVER_EXTENSIONS = ['.txt', '.png', '.bmp', '.wav', '.mp4', '.avi']
+ACCEPTABLE_PAYLOAD_EXTENSIONS = ['.txt']
+
 
 # Global variables for file types
 ACCEPTABLE_COVER_EXTENSIONS = ['.txt', '.png', '.bmp', '.wav', '.mp4', '.avi']
@@ -60,6 +68,9 @@ class SteganographyApp:
         self.cover_label = tk.Label(
             self.frame, text="Cover Object (Image/Audio/Video/Text):",
             bg="#ffffff", font=("Arial", 12))
+        self.cover_label = tk.Label(
+            self.frame, text="Cover Object (Image/Audio/Video/Text):",
+            bg="#ffffff", font=("Arial", 12))
         self.cover_label.grid(row=0, column=0, padx=10)
 
         self.cover_entry = tk.Entry(self.frame, width=40, font=("Arial", 12))
@@ -80,11 +91,17 @@ class SteganographyApp:
         self.payload_entry.grid(row=1, column=1)
 
         self.payload_browse_button = tk.Button(
+            
             self.frame, text="Browse", command=self.load_payload_file,
+           
             bg="#4CAF50", fg="white", font=("Arial", 12))
         self.payload_browse_button.grid(row=1, column=2, padx=10)
 
         # LSB Selection
+        self.lsb_label = tk.Label(
+            self.frame, text="Number of LSBs:",
+            bg="#ffffff", font=("Arial", 12))
+        self.lsb_label.grid(row=2, column=0, padx=10)
         self.lsb_label = tk.Label(
             self.frame, text="Number of LSBs:",
             bg="#ffffff", font=("Arial", 12))
@@ -94,13 +111,24 @@ class SteganographyApp:
         self.lsb_spinbox = tk.Spinbox(
             self.frame, from_=1, to=8, textvariable=self.lsb_var, font=("Arial", 12))
         self.lsb_spinbox.grid(row=2, column=1)
+        self.lsb_spinbox = tk.Spinbox(
+            self.frame, from_=1, to=8, textvariable=self.lsb_var, font=("Arial", 12))
+        self.lsb_spinbox.grid(row=2, column=1)
 
         # Action Buttons
         self.encode_button = tk.Button(
             self.frame, text="Encode", command=self.encode,
             bg="#2196F3", fg="white", font=("Arial", 12))
         self.encode_button.grid(row=3, column=0, pady=20)
+        self.encode_button = tk.Button(
+            self.frame, text="Encode", command=self.encode,
+            bg="#2196F3", fg="white", font=("Arial", 12))
+        self.encode_button.grid(row=3, column=0, pady=20)
 
+        self.decode_button = tk.Button(
+            self.frame, text="Decode", command=self.decode,
+            bg="#2196F3", fg="white", font=("Arial", 12))
+        self.decode_button.grid(row=3, column=1, pady=20)
         self.decode_button = tk.Button(
             self.frame, text="Decode", command=self.decode,
             bg="#2196F3", fg="white", font=("Arial", 12))
@@ -112,6 +140,9 @@ class SteganographyApp:
         self.original_frame.pack(pady=20)
         self.original_frame.pack_forget()
 
+        # Cover display placeholder for images
+        self.cover_display = tk.Label(
+            self.original_frame, bg="#ffffff", borderwidth=2, relief="solid")
         # Cover display placeholder for images
         self.cover_display = tk.Label(
             self.original_frame, bg="#ffffff", borderwidth=2, relief="solid")
@@ -152,12 +183,24 @@ class SteganographyApp:
             self.cover_file_path = None
             self.cover_entry.delete(0, tk.END)
             return
+        if not self.cover_file_path.lower().endswith(tuple(ACCEPTABLE_COVER_EXTENSIONS)):
+            messagebox.showerror(
+                "Error", "Unsupported file type selected for cover object.")
+            self.cover_file_path = None
+            self.cover_entry.delete(0, tk.END)
+            return
         self.cover_entry.delete(0, tk.END)
         self.cover_entry.insert(0, self.cover_file_path)
         self.display_cover()
 
     def on_drop_payload(self, event):
         self.payload_file_path = self.clean_file_path(event.data)
+        if not self.payload_file_path.lower().endswith(tuple(ACCEPTABLE_PAYLOAD_EXTENSIONS)):
+            messagebox.showerror(
+                "Error", "Unsupported file type selected for payload.")
+            self.payload_file_path = None
+            self.payload_entry.delete(0, tk.END)
+            return
         if not self.payload_file_path.lower().endswith(tuple(ACCEPTABLE_PAYLOAD_EXTENSIONS)):
             messagebox.showerror(
                 "Error", "Unsupported file type selected for payload.")
@@ -173,8 +216,16 @@ class SteganographyApp:
             title="Select Cover Object (Image/Audio/Video)",
             filetypes=[("All Supported Files",
                         "*.txt;*.png;*.bmp;*.wav;*.mp4;*.avi")]
+            filetypes=[("All Supported Files",
+                        "*.txt;*.png;*.bmp;*.wav;*.mp4;*.avi")]
         )
         if self.cover_file_path:
+            if not self.cover_file_path.lower().endswith(tuple(ACCEPTABLE_COVER_EXTENSIONS)):
+                messagebox.showerror(
+                    "Error", "Unsupported file type selected for cover object.")
+                self.cover_file_path = None
+                self.cover_entry.delete(0, tk.END)
+                return
             if not self.cover_file_path.lower().endswith(tuple(ACCEPTABLE_COVER_EXTENSIONS)):
                 messagebox.showerror(
                     "Error", "Unsupported file type selected for cover object.")
@@ -184,6 +235,16 @@ class SteganographyApp:
             self.cover_entry.delete(0, tk.END)
             self.cover_entry.insert(0, self.cover_file_path)
             self.display_cover()
+
+            # Remove previous FPS and Duration labels if they exist
+            if hasattr(self, 'fps_label') and self.fps_label.winfo_exists():
+                self.fps_label.destroy()
+            if hasattr(self, 'duration_label') and self.duration_label.winfo_exists():
+                self.duration_label.destroy()
+
+            # Initialize fps variable
+            self.video_fps = None
+
 
             # Remove previous FPS and Duration labels if they exist
             if hasattr(self, 'fps_label') and self.fps_label.winfo_exists():
@@ -235,9 +296,44 @@ class SteganographyApp:
                     cover_bits = 0
                 cap.release()
             print(f"Cover bits: '{cover_bits}'")
+                cap = cv2.VideoCapture(self.cover_file_path)
+                ret, frame = cap.read()
+                if ret:
+                    height, width, channels = frame.shape
+                    cover_bits = height * width * channels * self.lsb_var.get()
+
+                    # Get FPS
+                    self.video_fps = cap.get(cv2.CAP_PROP_FPS)
+                    print(f"The FPS of the video is: {self.video_fps}")
+
+                    # Get total frame count
+                    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                    self.video_frame_count = frame_count
+
+                    # Calculate duration
+                    self.video_duration = frame_count / self.video_fps if self.video_fps else 0
+
+                    # Display FPS and Duration in the GUI
+                    self.fps_label = tk.Label(
+                        self.frame, text=f"Video FPS: {self.video_fps:.2f}",
+                        bg="#ffffff", font=("Arial", 12))
+                    self.fps_label.grid(row=4, column=0, columnspan=2, pady=5)
+
+                    self.duration_label = tk.Label(
+                        self.frame, text=f"Video Duration: {self.video_duration:.2f} seconds",
+                        bg="#ffffff", font=("Arial", 12))
+                    self.duration_label.grid(row=5, column=0, columnspan=2, pady=5)
+                else:
+                    cover_bits = 0
+                cap.release()
+            print(f"Cover bits: '{cover_bits}'")
 
     def display_cover(self):
         if self.cover_file_path.endswith(('.png', '.bmp')):
+            # Show the image label, hide the video player
+            self.video_player.stop()
+            self.video_player.pack_forget()
+            self.cover_display.pack(padx=10, pady=10)
             # Show the image label, hide the video player
             self.video_player.stop()
             self.video_player.pack_forget()
@@ -254,8 +350,22 @@ class SteganographyApp:
             self.video_player.pack_forget()
             messagebox.showinfo(
                 "Cover Object", "Audio file selected as cover object.")
+            # Hide both image and video display
+            self.cover_display.pack_forget()
+            self.video_player.pack_forget()
+            messagebox.showinfo(
+                "Cover Object", "Audio file selected as cover object.")
             self.original_frame.pack_forget()
         elif self.cover_file_path.endswith('.mp4') or self.cover_file_path.endswith('.avi'):
+            # Hide the image display, show the video player
+            self.cover_display.pack_forget()
+            self.original_frame.pack()
+            # Load and play the video
+            self.video_player.load(self.cover_file_path)
+            # Set up looping
+            self.video_player.bind("<<Ended>>", lambda e: self.video_player.play())
+            self.video_player.play()
+            self.video_player.pack(expand=True, fill="both")
             # Hide the image display, show the video player
             self.cover_display.pack_forget()
             self.original_frame.pack()
@@ -273,6 +383,9 @@ class SteganographyApp:
                 "Cover Object", "Text file selected as cover object.")
             self.original_frame.pack_forget()
         else:
+            # Hide both image and video display
+            self.cover_display.pack_forget()
+            self.video_player.pack_forget()
             # Hide both image and video display
             self.cover_display.pack_forget()
             self.video_player.pack_forget()
@@ -296,9 +409,12 @@ class SteganographyApp:
             with open(self.payload_file_path, 'r') as f:
                 payload_bits = len(f.read()) * 8  # Each character in text is 1 byte, or 8 bits
             print(f"Payload bits: '{payload_bits}'")
+            print(f"Payload bits: '{payload_bits}'")
 
     def check_capacity(self):
         if payload_bits > cover_bits:
+            messagebox.showerror(
+                "Error", "Payload file is too large for the selected cover object.")
             messagebox.showerror(
                 "Error", "Payload file is too large for the selected cover object.")
             return False
